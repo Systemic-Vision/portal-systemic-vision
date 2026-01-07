@@ -200,6 +200,10 @@ export type DriverWithDetails = Database['public']['Tables']['driver_profiles'][
   vehicle?: Database['public']['Tables']['vehicles']['Row']
 }
 
+export type RiderWithDetails = Database['public']['Tables']['rider_profiles']['Row'] & {
+  user: Database['public']['Tables']['users']['Row']
+}
+
 export type TripWithDetails = Database['public']['Tables']['trips']['Row'] & {
   rider?: {
     id: string
