@@ -27,7 +27,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { format } from 'date-fns'
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import type { 
   DriverWithDetails, 
   VerificationStatus,
@@ -432,60 +432,16 @@ export default function DriverDetailPage() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Vehicles</h2>
         {driver.vehicles && driver.vehicles.length > 0 ? (
-          <div className="space-y-4">
+          <div className="space-y-6">
             {driver.vehicles.map((vehicle) => (
-              <div key={vehicle.id} className="border border-gray-200 rounded-lg p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-4">
-                    <div className="p-2 bg-blue-100 rounded-lg">
-                      <Car className="h-5 w-5 text-blue-600" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <p className="text-base font-semibold text-gray-900">
-                          {vehicle.make} {vehicle.model}
-                        </p>
-                        {vehicle.is_primary && (
-                          <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs font-medium rounded">
-                            Primary
-                          </span>
-                        )}
-                        {vehicle.is_active && (
-                          <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs font-medium rounded">
-                            Active
-                          </span>
-                        )}
-                      </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div>
-                          <p className="text-gray-500">License Plate</p>
-                          <p className="font-medium text-gray-900">{vehicle.license_plate}</p>
-                        </div>
-                        {vehicle.year && (
-                          <div>
-                            <p className="text-gray-500">Year</p>
-                            <p className="font-medium text-gray-900">{vehicle.year}</p>
-                          </div>
-                        )}
-                        {vehicle.color && (
-                          <div>
-                            <p className="text-gray-500">Color</p>
-                            <p className="font-medium text-gray-900">{vehicle.color}</p>
-                          </div>
-                        )}
-                        <div>
-                          <p className="text-gray-500">Capacity</p>
-                          <p className="font-medium text-gray-900">{vehicle.passenger_capacity} passengers</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <VehicleCard key={vehicle.id} vehicle={vehicle} />
             ))}
           </div>
         ) : (
-          <p className="text-gray-500 text-center py-8">No vehicles registered</p>
+          <div className="text-center py-12">
+            <Car className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500">No vehicles registered</p>
+          </div>
         )}
       </div>
 
@@ -709,6 +665,210 @@ export default function DriverDetailPage() {
           }}
         />
       )}
+    </div>
+  )
+}
+
+function VehicleCard({ vehicle }: { vehicle: Database['public']['Tables']['vehicles']['Row'] }) {
+  const [vehicleImageError, setVehicleImageError] = useState(false)
+  const [registrationImageError, setRegistrationImageError] = useState(false)
+
+  return (
+    <div className="border border-gray-200 rounded-lg p-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Vehicle Images */}
+        <div className="lg:col-span-1 space-y-4">
+          {vehicle.vehicle_photo_url && (
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-2">Vehicle Photo</p>
+              <div className="relative aspect-video bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
+                {!vehicleImageError ? (
+                  <img
+                    src={vehicle.vehicle_photo_url}
+                    alt={`${vehicle.make} ${vehicle.model}`}
+                    className="w-full h-full object-cover"
+                    onError={() => setVehicleImageError(true)}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-gray-400">
+                    <FileText className="h-8 w-8" />
+                  </div>
+                )}
+              </div>
+              <a
+                href={vehicle.vehicle_photo_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 inline-flex items-center text-sm text-blue-600 hover:text-blue-800"
+              >
+                <FileText className="h-4 w-4 mr-1" />
+                View Full Image
+              </a>
+            </div>
+          )}
+          {vehicle.registration_url && (
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-2">Registration Document</p>
+              <div className="relative aspect-video bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
+                {!registrationImageError ? (
+                  <img
+                    src={vehicle.registration_url}
+                    alt="Registration Document"
+                    className="w-full h-full object-cover"
+                    onError={() => setRegistrationImageError(true)}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-gray-400">
+                    <FileText className="h-8 w-8" />
+                  </div>
+                )}
+              </div>
+              <a
+                href={vehicle.registration_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 inline-flex items-center text-sm text-blue-600 hover:text-blue-800"
+              >
+                <FileText className="h-4 w-4 mr-1" />
+                View Full Document
+              </a>
+            </div>
+          )}
+          {!vehicle.vehicle_photo_url && !vehicle.registration_url && (
+            <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center">
+              <div className="text-center">
+                <Car className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                <p className="text-sm text-gray-500">No images available</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Vehicle Information */}
+        <div className="lg:col-span-2">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Car className="h-6 w-6 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">
+                    {vehicle.make} {vehicle.model}
+                  </h3>
+                  <p className="text-sm text-gray-500">Vehicle ID: {vehicle.id}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                {vehicle.is_primary && (
+                  <span className="px-2.5 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                    Primary Vehicle
+                  </span>
+                )}
+                {vehicle.is_active ? (
+                  <span className="px-2.5 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
+                    Active
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-1 bg-red-100 text-red-800 text-xs font-medium rounded-full">
+                    Inactive
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Basic Information */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Basic Information</h4>
+              <div className="space-y-3">
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">License Plate</p>
+                  <p className="text-sm font-medium text-gray-900">{vehicle.license_plate}</p>
+                </div>
+                {vehicle.year && (
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Year</p>
+                    <p className="text-sm font-medium text-gray-900">{vehicle.year}</p>
+                  </div>
+                )}
+                {vehicle.color && (
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Color</p>
+                    <p className="text-sm font-medium text-gray-900">{vehicle.color}</p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Passenger Capacity</p>
+                  <p className="text-sm font-medium text-gray-900">{vehicle.passenger_capacity} passengers</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Registration & Insurance */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Registration & Insurance</h4>
+              <div className="space-y-3">
+                {vehicle.registration_number && (
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Registration Number</p>
+                    <p className="text-sm font-medium text-gray-900">{vehicle.registration_number}</p>
+                  </div>
+                )}
+                {vehicle.registration_expiry && (
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Registration Expiry</p>
+                    <p className={`text-sm font-medium ${
+                      new Date(vehicle.registration_expiry) < new Date()
+                        ? 'text-red-600'
+                        : new Date(vehicle.registration_expiry) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+                        ? 'text-yellow-600'
+                        : 'text-gray-900'
+                    }`}>
+                      {format(new Date(vehicle.registration_expiry), 'MMM dd, yyyy')}
+                      {new Date(vehicle.registration_expiry) < new Date() && (
+                        <span className="ml-2 text-xs text-red-600">(Expired)</span>
+                      )}
+                      {new Date(vehicle.registration_expiry) >= new Date() && 
+                       new Date(vehicle.registration_expiry) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) && (
+                        <span className="ml-2 text-xs text-yellow-600">(Expiring Soon)</span>
+                      )}
+                    </p>
+                  </div>
+                )}
+                {vehicle.insurance_expiry && (
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Insurance Expiry</p>
+                    <p className={`text-sm font-medium ${
+                      new Date(vehicle.insurance_expiry) < new Date()
+                        ? 'text-red-600'
+                        : new Date(vehicle.insurance_expiry) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+                        ? 'text-yellow-600'
+                        : 'text-gray-900'
+                    }`}>
+                      {format(new Date(vehicle.insurance_expiry), 'MMM dd, yyyy')}
+                      {new Date(vehicle.insurance_expiry) < new Date() && (
+                        <span className="ml-2 text-xs text-red-600">(Expired)</span>
+                      )}
+                      {new Date(vehicle.insurance_expiry) >= new Date() && 
+                       new Date(vehicle.insurance_expiry) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) && (
+                        <span className="ml-2 text-xs text-yellow-600">(Expiring Soon)</span>
+                      )}
+                    </p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Created At</p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {format(new Date(vehicle.created_at), 'MMM dd, yyyy')}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
