@@ -94,6 +94,33 @@ export async function POST(req: Request) {
       );
     }
 
+    // Drivers must be approved before they can pay for a subscription
+    if (user.role === "driver") {
+      const { data: driverProfile, error: driverProfileError } = await supabase
+        .from("driver_profiles")
+        .select("verification_status")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (driverProfileError) {
+        console.error("[MMG checkout] driver profile lookup failed:", driverProfileError);
+        return NextResponse.json(
+          { error: "Unable to verify driver status" },
+          { status: 500 }
+        );
+      }
+
+      if (driverProfile?.verification_status !== "approved") {
+        return NextResponse.json(
+          {
+            error: "Driver account must be approved before purchasing a subscription",
+            verificationStatus: driverProfile?.verification_status ?? null,
+          },
+          { status: 403 }
+        );
+      }
+    }
+
     // Idempotency: reuse a recent pending transaction for the same user/amount
     // to prevent duplicate records on network retries
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
