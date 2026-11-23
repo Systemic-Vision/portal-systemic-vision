@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { fetchAllRows } from '@/lib/supabase/fetch-all'
 import {
   Search,
   ClipboardList,
@@ -48,27 +49,27 @@ async function fetchTripRequests(filters: {
 }) {
   const supabase = createClient()
 
-  let query = supabase
-    .from('trip_requests')
-    .select(`
-      *,
-      rider:rider_id (
-        id,
-        user:user_id (full_name, phone_number, email)
-      ),
-      trip_stops (*)
-    `)
-    .order('created_at', { ascending: false })
+  // Page through all matching rows — a single query is capped at PostgREST's max-rows (1000).
+  let results = await fetchAllRows<TripRequestRow>(() => {
+    let query = supabase
+      .from('trip_requests')
+      .select(`
+        *,
+        rider:rider_id (
+          id,
+          user:user_id (full_name, phone_number, email)
+        ),
+        trip_stops (*)
+      `)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
 
-  if (filters.status !== 'all') query = query.eq('status', filters.status)
-  if (filters.tripType !== 'all') query = query.eq('trip_type', filters.tripType)
-  if (filters.dateFrom) query = query.gte('created_at', filters.dateFrom)
-  if (filters.dateTo) query = query.lte('created_at', filters.dateTo + 'T23:59:59')
-
-  const { data, error } = await query
-  if (error) throw error
-
-  let results = (data ?? []) as TripRequestRow[]
+    if (filters.status !== 'all') query = query.eq('status', filters.status)
+    if (filters.tripType !== 'all') query = query.eq('trip_type', filters.tripType)
+    if (filters.dateFrom) query = query.gte('created_at', filters.dateFrom)
+    if (filters.dateTo) query = query.lte('created_at', filters.dateTo + 'T23:59:59')
+    return query
+  })
   if (filters.searchQuery) {
     const q = filters.searchQuery.toLowerCase()
     results = results.filter(

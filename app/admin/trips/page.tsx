@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { fetchAllRows } from '@/lib/supabase/fetch-all'
 import {
   Search,
   Route,
@@ -36,54 +37,55 @@ async function fetchTrips(filters: {
   endDate: string
 }) {
   const supabase = createClient()
-  
-  let query = supabase
-    .from('trips')
-    .select(`
-      *,
-      rider:rider_id (
-        id,
-        user:user_id (full_name, phone_number)
-      ),
-      driver:driver_id (
-        id,
-        user:user_id (full_name, phone_number)
-      ),
-      vehicle:vehicle_id (make, model, license_plate)
-    `)
-    .order('requested_at', { ascending: false })
 
-  if (filters.status !== 'all') {
-    query = query.eq('status', filters.status)
-  }
+  // Page through all matching rows — a single query is capped at PostgREST's max-rows (1000).
+  let results = await fetchAllRows<TripWithDetails>(() => {
+    let query = supabase
+      .from('trips')
+      .select(`
+        *,
+        rider:rider_id (
+          id,
+          user:user_id (full_name, phone_number)
+        ),
+        driver:driver_id (
+          id,
+          user:user_id (full_name, phone_number)
+        ),
+        vehicle:vehicle_id (make, model, license_plate)
+      `)
+      .order('requested_at', { ascending: false })
+      .order('id', { ascending: false })
 
-  if (filters.tripType !== 'all') {
-    query = query.eq('trip_type', filters.tripType)
-  }
+    if (filters.status !== 'all') {
+      query = query.eq('status', filters.status)
+    }
 
-  // 'flagged' = finished trips where the rider's location was missing or patchy.
-  if (filters.coverage === 'flagged') {
-    query = query.in('rider_location_coverage', ['partial', 'none'])
-  } else if (filters.coverage !== 'all') {
-    query = query.eq('rider_location_coverage', filters.coverage)
-  }
+    if (filters.tripType !== 'all') {
+      query = query.eq('trip_type', filters.tripType)
+    }
 
-  if (filters.startDate) {
-    const startDateTime = new Date(`${filters.startDate}T00:00:00`)
-    query = query.gte('requested_at', startDateTime.toISOString())
-  }
+    // 'flagged' = finished trips where the rider's location was missing or patchy.
+    if (filters.coverage === 'flagged') {
+      query = query.in('rider_location_coverage', ['partial', 'none'])
+    } else if (filters.coverage !== 'all') {
+      query = query.eq('rider_location_coverage', filters.coverage)
+    }
 
-  if (filters.endDate) {
-    const endDateTime = new Date(`${filters.endDate}T23:59:59.999`)
-    query = query.lte('requested_at', endDateTime.toISOString())
-  }
+    if (filters.startDate) {
+      const startDateTime = new Date(`${filters.startDate}T00:00:00`)
+      query = query.gte('requested_at', startDateTime.toISOString())
+    }
 
-  const { data, error } = await query
+    if (filters.endDate) {
+      const endDateTime = new Date(`${filters.endDate}T23:59:59.999`)
+      query = query.lte('requested_at', endDateTime.toISOString())
+    }
 
-  if (error) throw error
+    return query
+  })
 
   // Client-side search filtering
-  let results = data as TripWithDetails[]
   if (filters.searchQuery) {
     const searchLower = filters.searchQuery.toLowerCase()
     results = results.filter(trip => 
